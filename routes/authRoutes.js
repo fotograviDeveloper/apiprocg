@@ -1,13 +1,26 @@
 const express = require('express');
-const router = express.Router();
+const router = express.Router(); // Router de Express, NO del paquete 'router'
 const authController = require('../controllers/authController');
-const { authenticate } = require('../middlewares/authMiddleware');
+const authMiddleware = require('../middlewares/authMiddleware');
+const { verifyToken } = require('../middlewares/authMiddleware'); // Importa el middleware
 
-// Public routes
-router.post('/register', authController.register);
+// Ruta de registro simplificada
+router.post('/register', (req, res, next) => {
+  // Validación básica
+  const { username, email, password } = req.body;
+  
+  if (!username || !email || !password) {
+    return res.status(400).json({ 
+      success: false,
+      error: 'Todos los campos son requeridos' 
+    });
+  }
+  
+  // Pasar al controlador
+  authController.register(req, res, next);
+});
+// Ruta de login
 router.post('/login', authController.login);
-
-// Protected route
-router.get('/profile', authenticate, authController.getProfile);
+router.post('/logout', verifyToken, authController.logout); // <- Nueva ruta
 
 module.exports = router;

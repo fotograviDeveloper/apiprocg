@@ -1,6 +1,7 @@
-// models/User.js
+const bcrypt = require('bcryptjs'); // <-- Añade esta línea al inicio
+
 module.exports = (sequelize, DataTypes) => {
-    const User = sequelize.define('User', {
+    const User = sequelize.define('Users', {
       id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
@@ -8,13 +9,13 @@ module.exports = (sequelize, DataTypes) => {
       },
       username: {
         type: DataTypes.STRING,
-        unique: true,
-        allowNull: false
+        allowNull: false,
+        unique: true
       },
       email: {
         type: DataTypes.STRING,
-        unique: true,
         allowNull: false,
+        unique: true,
         validate: {
           isEmail: true
         }
@@ -24,7 +25,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false
       },
       role: {
-        type: DataTypes.ENUM('admin', 'user', 'guest'),
+        type: DataTypes.ENUM('admin', 'user'),
         defaultValue: 'user'
       },
       isActive: {
@@ -32,11 +33,26 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: true
       }
     }, {
-      timestamps: true
+      timestamps: true,
+      hooks: {
+        beforeCreate: async (user) => {
+          if (user.password) {
+            const salt = await bcrypt.genSalt(10);
+            user.password = await bcrypt.hash(user.password, salt);
+          }
+        },
+        beforeUpdate: async (user) => {
+          if (user.changed('password')) {
+            const salt = await bcrypt.genSalt(10);
+            user.password = await bcrypt.hash(user.password, salt);
+          }
+        }
+      }
     });
   
-    User.associate = (models) => {
-      User.hasMany(models.Quote, { foreignKey: 'user_id' });
+    // Método para comparar contraseñas (útil en el login)
+    User.prototype.comparePassword = async function (password) {
+      return await bcrypt.compare(password, this.password);
     };
   
     return User;

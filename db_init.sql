@@ -1,0 +1,87 @@
+-- 1. Tabla Users (si no existe)
+CREATE TABLE IF NOT EXISTS Users (
+  id INT NOT NULL AUTO_INCREMENT,
+  username VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  role VARCHAR(50) DEFAULT 'user',
+  isActive BOOLEAN DEFAULT TRUE,
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 2. Tabla Categories (si no existe)
+CREATE TABLE IF NOT EXISTS Categories (
+  id INT NOT NULL AUTO_INCREMENT,
+  name VARCHAR(255) NOT NULL,
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3. Tabla Subcategories (con relación a Categories)
+CREATE TABLE IF NOT EXISTS Subcategories (
+  id INT NOT NULL AUTO_INCREMENT,
+  name VARCHAR(255) NOT NULL,
+  CategoryId INT NOT NULL,
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  FOREIGN KEY (CategoryId) REFERENCES Categories(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 4. Tabla Products (con relaciones)
+CREATE TABLE IF NOT EXISTS Products (
+  id INT NOT NULL AUTO_INCREMENT,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  price DECIMAL(10,2) NOT NULL,
+  stock INT DEFAULT 0,
+  CategoryId INT NOT NULL,
+  SubcategoryId INT NOT NULL,
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  FOREIGN KEY (CategoryId) REFERENCES Categories(id),
+  FOREIGN KEY (SubcategoryId) REFERENCES Subcategories(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 5. Tabla Quotes
+CREATE TABLE IF NOT EXISTS Quotes (
+  id INT NOT NULL AUTO_INCREMENT,
+  status VARCHAR(50) DEFAULT 'pending',
+  UserId INT NOT NULL,
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  FOREIGN KEY (UserId) REFERENCES Users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 6. Tabla QuoteItems
+CREATE TABLE IF NOT EXISTS QuoteItems (
+  id INT NOT NULL AUTO_INCREMENT,
+  quantity INT NOT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  ProductId INT NOT NULL,
+  QuoteId INT NOT NULL,
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  FOREIGN KEY (ProductId) REFERENCES Products(id),
+  FOREIGN KEY (QuoteId) REFERENCES Quotes(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 7. Datos iniciales (solo si no existen)
+INSERT IGNORE INTO Users (username, email, password, role) 
+VALUES ('admin', 'admin@garza.com', '$2b$10$TuHashSeguroAqui', 'admin');
+
+INSERT IGNORE INTO Categories (name) VALUES 
+('Electrónica'), ('Muebles'), ('Materiales');
+
+-- Subcategorías dependen de Categories, usamos IDs fijos para referencia
+INSERT IGNORE INTO Subcategories (id, name, CategoryId) VALUES 
+(1, 'Smartphones', 1), 
+(2, 'Laptops', 1), 
+(3, 'Oficina', 2), 
+(4, 'Hogar', 2);

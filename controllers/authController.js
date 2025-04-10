@@ -1,57 +1,131 @@
-const jwt = require('jsonwebtoken');
 const { User } = require('../models');
-const { authenticate } = require('../middlewares/authMiddleware');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { BlacklistedToken } = require('../models');
 
-const register = async (req, res) => {
-  try {
-    const { username, email, password } = req.body;
-    const user = await User.create({ username, email, password });
-    
-    const userResponse = user.toJSON();
-    delete userResponse.password;
-    
-    res.status(201).json(userResponse);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
+const authController = {
+  register: async (req, res) => {
+    try {
+      const { username, email, password } = req.body;
 
-const login = async (req, res, next) => {
-  passport.authenticate('local', { session: false }, (err, user, info) => {
-    if (err || !user) {
-      return res.status(400).json({
-        message: info ? info.message : 'Error en el login',
-        user
+      // Validación básica
+      if (!username || !email || !password) {
+        return res.status(400).json({
+          success: false,
+          error: 'Todos los campos son requeridos'
+        });
+      }
+
+      // Verificar si el usuario ya existe
+      const existingUser = await User.findOne({ where: { email } });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          error: 'El email ya está registrado'
+        });
+      }
+
+      // Crear usuario
+      const user = await User.create({
+        username,
+        email,
+        password,
+        role: 'user',
+        isActive: true
       });
-    }
 
-    req.login(user, { session: false }, (err) => {
-      if (err) return next(err);
-      
+      // Generar token
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role },
         process.env.JWT_SECRET,
-        { expiresIn: '8h' }
+        { expiresIn: '1h' }
       );
-      
-      return res.json({ token });
-    });
-  })(req, res, next);
-};
 
-const getProfile = async (req, res) => {
-  try {
-    const user = await User.findByPk(req.user.id, {
-      attributes: { exclude: ['password'] }
+      // Excluir la contraseña en la respuesta
+      const userResponse = user.get({ plain: true });
+      delete userResponse.password;
+
+      res.status(201).json({
+        success: true,
+        data: userResponse,
+        token
+      });
+
+    } catch (error) {
+      console.error('Error en registro:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Error al registrar usuario',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  },
+
+  login: async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      // Validación básica
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email y contraseña son requeridos'
+        });
+      }
+
+      // Buscar usuario
+      const user = await User.findOne({ where: { email } });
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Credenciales inválidas'
+        });
+      }
+
+      // Verificar contraseña
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(401).json({
+          success: false,
+          error: 'Credenciales inválidas'
+        });
+      }
+
+      // Generar token
+      const token = jwt.sign(
+        { id: user.id, email: user.email, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+
+      // Excluir la contraseña en la respuesta
+      const userResponse = user.get({ plain: true });
+      delete userResponse.password;
+
+      res.json({
+        success: true,
+        token,
+        data: userResponse
+      });
+
+    } catch (error) {
+      console.error('Error en login:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Error al iniciar sesión',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  },
+
+  // Controlador de logout
+  logout: (req, res) => {
+    // En JWT, el logout se maneja principalmente en el frontend
+    res.json({
+      success: true,
+      message: 'Sesión cerrada exitosamente. Elimina el token en el cliente.'
     });
-    res.json(user);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
   }
 };
 
-module.exports = {
-  register,
-  login,
-  getProfile
-};
+module.exports = authController;
